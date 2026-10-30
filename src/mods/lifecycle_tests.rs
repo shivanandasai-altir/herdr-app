@@ -228,9 +228,6 @@ export default class extends View {
     gpui_shell::policy::set_default(Policy::new().with_host_module(
         HostModule::new("fixture")
             .async_function("wait", |_| Ok(async {
-                let s = Instant::now();
-                std::thread::sleep(Duration::from_millis(10));
-                eprintln!("DIAG wait slept {:?}", s.elapsed());
                 Ok(HostValue::Null)
             }))
             .function("note", move |_| { calls.set(calls.get() + 1); eprintln!("DIAG note {}", calls.get()); Ok(HostValue::Null) })
