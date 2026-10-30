@@ -1261,8 +1261,9 @@ where
                 let outcome = match receiver.try_recv() {
                     Ok(Some(outcome)) => outcome,
                     Err(std::sync::mpsc::TryRecvError::Empty) => return false,
-                    _ => { finish(&task); return true; }
+                    other => { eprintln!("DIAG awaiting dropped: {}", if other.is_ok() { "cancelled" } else { "disconnected" }); finish(&task); return true; }
                 };
+                eprintln!("DIAG awaiting settled, ready={}", matches!(task.readiness(), Readiness::Ready(_)));
                 if matches!(task.readiness(), Readiness::Ready(_)) {
                     let resolve = task.take_callback();
                     let reject = task.take_rejection();

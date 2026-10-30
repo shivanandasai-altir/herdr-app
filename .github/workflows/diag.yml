@@ -1,0 +1,27 @@
+name: diag
+on:
+  push:
+    branches: ['diag/**']
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: true }
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: 1.95.0 }
+      - uses: mlugg/setup-zig@v2
+        with: { version: 0.16.0 }
+      - name: Build
+        run: cargo test --locked --config 'profile.dev.package."*".opt-level=0' --bins --no-run
+      - name: Full bins suite x5 (like CI)
+        run: |
+          for i in 1 2 3 4 5; do
+            echo "=== suite run $i"; cargo test --locked --config 'profile.dev.package."*".opt-level=0' --bins -- --nocapture 2>&1 | grep -E "DIAG|final_close_pumps|test result" || true
+          done
+      - name: Isolated x30
+        run: |
+          for i in $(seq 1 30); do
+            cargo test --locked --config 'profile.dev.package."*".opt-level=0' --bins final_close_pumps -- --nocapture 2>&1 | grep -E "DIAG|test result" || true
+          done

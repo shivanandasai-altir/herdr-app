@@ -25,7 +25,8 @@ impl Closing {
             let promise = promise.clone().restore(ctx)?;
             match promise.state() {
                 rquickjs::promise::PromiseState::Pending => Ok(true),
-                _ => {
+                state => {
+                    eprintln!("DIAG close promise state={state:?}");
                     if let Some(result) = promise.result::<Value>() { result?; }
                     Ok(false)
                 }
@@ -106,10 +107,25 @@ impl ShellRuntime {
         window: &mut Window, cx: &mut App,
     ) {
         let _pump = scheduler::SynchronousClose::enter();
+        let t0 = Instant::now();
         let Some(closing) = self.start_close(root, deadline, window, cx) else { return };
-        while Instant::now() < deadline && closing.pending(self, window, cx) {
+        eprintln!("DIAG start_close took {:?}", t0.elapsed());
+        let mut iterations = 0u32;
+        let mut max_gap = Duration::ZERO;
+        let mut last = Instant::now();
+        let ended_by;
+        loop {
+            if Instant::now() >= deadline { ended_by = "deadline"; break; }
+            let before = Instant::now();
+            let still = closing.pending(self, window, cx);
+            let took = before.elapsed();
+            if took > Duration::from_millis(20) { eprintln!("DIAG pending() iteration {iterations} took {took:?} at {:?}", t0.elapsed()); }
+            iterations += 1;
+            if !still { ended_by = "settled"; break; }
             std::thread::sleep(Duration::from_millis(1));
+            let gap = last.elapsed(); if gap > max_gap { max_gap = gap; } last = Instant::now();
         }
+        eprintln!("DIAG close_now ended_by={ended_by} after {:?} iterations={iterations} max_iteration_gap={max_gap:?}", t0.elapsed());
         self.release_application_generation(&closing.application, cx);
     }
 }
